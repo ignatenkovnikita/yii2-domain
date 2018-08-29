@@ -4,6 +4,7 @@ namespace ignatenkovnikita\domain;
 
 
 use common\models\Site;
+use ignatenkovnikita\domain\models\SiteDomain;
 use Yii;
 use yii\base\Component;
 use yii\base\ErrorException;
@@ -95,18 +96,18 @@ class CurrentDomain extends Component
          */
         $identityClass = $this->identityClass;
         /** @var Site $identity */
-        $identity = call_user_func(array($this->identityClass, 'findIdentityByDomain'), $name);
 //        $identity = $identityClass::findIdentityByDomain($name);
+        $siteDomain = SiteDomain::find()->byName($name)->one();
 
-
-        if ($identity) {
-            $this->isPrimaryDomain($identity, $name);
+        if ($siteDomain) {
+            $this->isPrimaryDomain($siteDomain, $name);
+            $identity = call_user_func(array($this->identityClass, 'findIdentity'), $siteDomain->site_id);
             $this->setIdentity($identity);
         } else {
             if (is_a(Yii::$app, 'yii\web\Application')) {
                 \Yii::$app->user->logout();
             }
-//            throw new ErrorException('Current site not set. Current name ' . $name);
+            throw new ErrorException('Current site not set. Current name ' . $name);
         }
     }
 
@@ -117,14 +118,13 @@ class CurrentDomain extends Component
     }
 
 
-
-    public function isPrimaryDomain(Site $site, $domainName)
+    public function isPrimaryDomain(SiteDomain $siteDomain, $domainName)
     {
-        $primaryDomain = $site->getPrimaryDomain();
-        if ($primaryDomain) {
-            if ($primaryDomain->domain != $domainName) {
-                return Yii::$app->response->redirect('http://' . $primaryDomain->domain);
-            }
+        $primaryDomain = SiteDomain::find()->bySiteId($siteDomain->site_id)->isPrimary()->one();
+        if (!$siteDomain->is_primary && $primaryDomain) {
+//            if ($siteDomain->name != $domainName) {
+                return Yii::$app->response->redirect('http://' . $primaryDomain->name)->send();
+//            }
         }
     }
 }
